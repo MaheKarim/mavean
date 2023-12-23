@@ -7,6 +7,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -45,27 +46,67 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $input = $request->only('email', 'password');
+        // Get the credentials from the request
+        $credentials = $request->only('email', 'password');
 
         try {
-            // this authenticates the user details with the database and generates a token
-            if (! $token = JWTAuth::attempt($input)) {
-                return response()->json(['error' => 'Invalid email or password'], 401);
-            } else {
-                // Get the user data
+            // Attempt to authenticate the user and generate a token
+            if (!$token = JWTAuth::attempt($credentials)) {
+                // Check if the email exists in the database
                 $user = User::where('email', $request->email)->first();
 
-                // Attach the token to the user data in the response
-                $user->token = $token;
+                if (!$user) {
+                    return response()->json(['error' => 'User not found'], 404);
+                }
 
-                return response()->json([
-                    'status' => 'success',
-                    'data' => $user
-                ], 200);
+                // Check if the password matches
+                if (!Hash::check(request('password'), $user->getAuthPassword())) {
+                    return response()->json(['error' => 'Invalid password'], 401);
+                }
+
+                // If neither email nor password match, return a generic error
+                return response()->json(['error' => 'Invalid email or password'], 401);
             }
-        } catch (JWTException $e) {
-            return $this->sendError([], $e->getMessage(), 500);
-        }
 
+            // Fetch the user details
+            $user = Auth::user();
+
+            // Attach the token to the user data in the response
+            $user->token = $token;
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $user
+            ], 200);
+
+        } catch (JWTException $e) {
+            // Log the exception for debugging purposes
+            Log::error('Login failed: ' . $e->getMessage());
+
+            // Return an error response
+            return response()->json(['error' => 'Login failed'], 500);
+        }
     }
+
+    public function logout()
+    {
+        try {
+            $token = JWTAuth::getToken();
+
+            // Log the token to see if it's present
+            Log::info('Token: ' . $token);
+
+            // Invalidate the current token
+            JWTAuth::invalidate($token);
+
+            return response()->json(['status' => 'success', 'message' => 'Logout successful'], 200);
+        } catch (\Exception $e) {
+            // Log the exception for debugging purposes
+            Log::error('Logout failed: ' . $e->getMessage());
+
+            // Return an error response
+            return response()->json(['error' => 'Logout failed'], 500);
+        }
+    }
+
 }
