@@ -16,7 +16,7 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
-// JWT Auth
+    // JWT Auth
     public function register(RegisterRequest $request) : \Illuminate\Http\JsonResponse
     {
         DB::beginTransaction();
@@ -85,27 +85,6 @@ class AuthController extends Controller
 
             // Return an error response
             return response()->json(['error' => 'Login failed'], 500);
-        }
-    }
-
-    public function logout()
-    {
-        try {
-            $token = JWTAuth::getToken();
-
-            // Log the token to see if it's present
-            Log::info('Token: ' . $token);
-
-            // Invalidate the current token
-            JWTAuth::invalidate($token);
-
-            return response()->json(['status' => 'success', 'message' => 'Logout successful'], 200);
-        } catch (\Exception $e) {
-            // Log the exception for debugging purposes
-            Log::error('Logout failed: ' . $e->getMessage());
-
-            // Return an error response
-            return response()->json(['error' => 'Logout failed'], 500);
         }
     }
 
